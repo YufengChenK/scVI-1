@@ -2,7 +2,6 @@ import h5py
 import numpy as np
 from scipy.sparse import csc_matrix, csr_matrix, vstack
 from sklearn.preprocessing import StandardScaler
-import os
 
 from .dataset import GeneExpressionDataset
 
@@ -24,7 +23,7 @@ class BrainLargeDataset(GeneExpressionDataset):
         :save_path: Save path of raw data file. Default: ``'data/'``.
 
     Examples:
-        >>> gene_dataset = BrainLargeDataset()
+        >>> dataset = BrainLargeDataset()
 
     .. _10x Genomics:
         https://support.10xgenomics.com/single-cell-gene-expression/datasets
@@ -43,14 +42,14 @@ class BrainLargeDataset(GeneExpressionDataset):
         self.download_name = "genomics.h5"
 
         Xs = self.download_and_preprocess()
-        super().__init__(
+        super(BrainLargeDataset, self).__init__(
             *GeneExpressionDataset.get_attributes_from_list(Xs)
         )
 
     def preprocess(self):
         print("Preprocessing Brain Large data")
 
-        filtered_matrix_h5 = os.path.join(self.save_path, self.download_name)
+        filtered_matrix_h5 = self.save_path + self.download_name
         with h5py.File(filtered_matrix_h5) as f:
             dset = f["mm10"]
             n_genes, n_cells = f["mm10"]["shape"]

@@ -38,9 +38,9 @@ class VAE(nn.Module):
         * ``'zinb'`` - Zero-inflated negative binomial distribution
 
     Examples:
-        >>> gene_dataset = CortexDataset()
-        >>> vae = VAE(gene_dataset.nb_genes, n_batch=gene_dataset.n_batches * False,
-        ... n_labels=gene_dataset.n_labels)
+        >>> dataset = CortexDataset()
+        >>> vae = VAE(dataset.nb_genes, n_batch=dataset.n_batches * False,
+        ... n_labels=dataset.n_labels)
 
     """
 
@@ -48,7 +48,7 @@ class VAE(nn.Module):
                  n_hidden: int = 128, n_latent: int = 10, n_layers: int = 1,
                  dropout_rate: float = 0.1, dispersion: str = "gene",
                  log_variational: bool = True, reconstruction_loss: str = "zinb"):
-        super().__init__()
+        super(VAE, self).__init__()
         self.dispersion = dispersion
         self.n_latent = n_latent
         self.log_variational = log_variational
@@ -193,7 +193,9 @@ class VAE(nn.Module):
         # Parameters for z latent distribution
 
         px_scale, px_r, px_rate, px_dropout, qz_m, qz_v, z, ql_m, ql_v, library = self.inference(x, batch_index, y)
-
+        reconst_loss = self._reconstruction_loss(x, px_rate, px_r, px_dropout)
+        with open("reconstLoss.txt", 'a') as rlf:
+            print(*("reconst_loss:", reconst_loss), file=rlf)
         # KL Divergence
         mean = torch.zeros_like(qz_m)
         scale = torch.ones_like(qz_v)
@@ -201,7 +203,5 @@ class VAE(nn.Module):
         kl_divergence_z = kl(Normal(qz_m, torch.sqrt(qz_v)), Normal(mean, scale)).sum(dim=1)
         kl_divergence_l = kl(Normal(ql_m, torch.sqrt(ql_v)), Normal(local_l_mean, torch.sqrt(local_l_var))).sum(dim=1)
         kl_divergence = kl_divergence_z
-
-        reconst_loss = self._reconstruction_loss(x, px_rate, px_r, px_dropout)
 
         return reconst_loss + kl_divergence_l, kl_divergence

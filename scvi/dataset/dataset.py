@@ -29,9 +29,11 @@ class GeneExpressionDataset(Dataset):
         self.dense = type(X) is np.ndarray
         self._X = np.ascontiguousarray(X, dtype=np.float32) if self.dense else X
         self.nb_genes = self.X.shape[1]
+
         self.local_means = local_means
         self.local_vars = local_vars
         self.batch_indices, self.n_batches = arrange_categories(batch_indices)
+        # print('self.batch_indices, self.n_batches:', self.batch_indices, self.n_batches)
         self.labels, self.n_labels = arrange_categories(labels)
         self.x_coord, self.y_coord = x_coord, y_coord
 
@@ -39,6 +41,9 @@ class GeneExpressionDataset(Dataset):
             assert self.nb_genes == len(gene_names)
             self.gene_names = np.array(gene_names, dtype=np.str)
         if cell_types is not None:
+            print("n_labels:", self.n_labels)
+            print("cell_types:", cell_types)
+
             assert self.n_labels == len(cell_types)
             self.cell_types = np.array(cell_types, dtype=np.str)
 
@@ -237,14 +242,11 @@ class GeneExpressionDataset(Dataset):
 
     @staticmethod
     def _download(url, save_path, download_name):
-        if os.path.exists(os.path.join(save_path, download_name)):
-            print("File %s already downloaded" % (os.path.join(save_path, download_name)))
+        if os.path.exists(save_path + download_name):
+            print("File %s already downloaded" % (save_path + download_name))
             return
-        if url is None:
-            print("You are trying to load a local file named %s and located at %s but this file was not found"
-                  " at the location %s" % (download_name, save_path, os.path.join(save_path, download_name)))
         r = urllib.request.urlopen(url)
-        print("Downloading file at %s" % os.path.join(save_path, download_name))
+        print("Downloading file at %s" % save_path + download_name)
 
         def readIter(f, blocksize=1000):
             """Given a file 'f', returns an iterator that returns bytes of
@@ -259,7 +261,7 @@ class GeneExpressionDataset(Dataset):
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-        with open(os.path.join(save_path, download_name), 'wb') as f:
+        with open(save_path + download_name, 'wb') as f:
             for data in readIter(r):
                 f.write(data)
 
@@ -277,17 +279,27 @@ class GeneExpressionDataset(Dataset):
 
     @staticmethod
     def get_attributes_from_matrix(X, batch_indices=0, labels=None):
-        ne_cells = X.sum(axis=1) > 0
-        to_keep = np.where(ne_cells)
-        if not ne_cells.all():
-            X = X[to_keep]
-            removed_idx = np.where(~ne_cells)[0]
+        to_keep = np.array((X.sum(axis=1) > 0)).ravel()
+        if X.shape != X[to_keep].shape:
+            removed_idx = []
+            for i in range(len(to_keep)):
+                if not to_keep[i]:
+                    removed_idx.append(i)
             print("Cells with zero expression in all genes considered were removed, the indices of the removed cells "
                   "in the expression matrix were:")
             print(removed_idx)
+        X = X[to_keep]
         local_mean, local_var = GeneExpressionDataset.library_size(X)
         batch_indices = batch_indices * np.ones((X.shape[0], 1)) if type(batch_indices) is int \
             else batch_indices[to_keep]
+        # print("to_keep:", to_keep)
+        # print("np.shape(to_keep):", np.shape(to_keep))
+        # print("np.shape(labels):", np.shape(labels))
+        import pickle
+        with open("to_keep.pkl", 'wb') as tkf:
+            pickle.dump(to_keep, tkf)
+        with open("labels.pkl", 'wb') as lf:
+            pickle.dump(to_keep, lf)
         labels = labels[to_keep].reshape(-1, 1) if labels is not None else np.zeros_like(batch_indices)
         return X, local_mean, local_var, batch_indices, labels
 
@@ -331,7 +343,7 @@ class GeneExpressionDataset(Dataset):
     def concat_datasets(*gene_datasets, on='gene_names', shared_labels=True, shared_batches=False):
         """
         Combines multiple unlabelled gene_datasets based on the intersection of gene names intersection.
-        Datasets should all have gene_dataset.n_labels=0.
+        Datasets should all have dataset.n_labels=0.
         Batch indices are generated in the same order as datasets are given.
         :param gene_datasets: a sequence of gene_datasets object
         :return: a GeneExpressionDataset instance of the concatenated datasets
@@ -392,7 +404,7 @@ class GeneExpressionDataset(Dataset):
     @staticmethod
     def _filter_genes(gene_dataset, gene_names_ref, on='gene_names'):
         """
-        :return: gene_dataset.X filtered by the corresponding genes ( / columns / features), idx_genes
+        :return: dataset.X filtered by the corresponding genes ( / columns / features), idx_genes
         """
         gene_names = list(getattr(gene_dataset, on))
         subset_genes = np.array([gene_names.index(gene_name) for gene_name in gene_names_ref], dtype=np.int64)

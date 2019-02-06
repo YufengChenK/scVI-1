@@ -13,6 +13,8 @@ from tqdm import trange
 
 from scvi.inference.posterior import Posterior
 
+torch.set_grad_enabled(False)
+
 
 class Trainer:
     r"""The abstract Trainer class for training a PyTorch model and monitoring its statistics. It should be
@@ -20,7 +22,7 @@ class Trainer:
 
     Args:
         :model: A model instance from class ``VAE``, ``VAEC``, ``SCANVI``
-        :gene_dataset: A gene_dataset instance like ``CortexDataset()``
+        :dataset: A dataset instance like ``CortexDataset()``
         :use_cuda: Default: ``True``.
         :metrics_to_monitor: A list of the metrics to monitor. If not specified, will use the
             ``default_metrics_to_monitor`` as specified in each . Default: ``None``.
@@ -67,10 +69,9 @@ class Trainer:
 
         self.frequency = frequency if not benchmark else None
         self.verbose = verbose
+        a = lambda: []
+        self.history = defaultdict(a)
 
-        self.history = defaultdict(lambda: [])
-
-    @torch.no_grad()
     def compute_metrics(self):
         begin = time.time()
         epoch = self.epoch + 1
@@ -93,43 +94,44 @@ class Trainer:
 
     def train(self, n_epochs=20, lr=1e-3, eps=0.01, params=None):
         begin = time.time()
-        self.model.train()
+        with torch.set_grad_enabled(True):
+            self.model.train()
 
-        if params is None:
-            params = filter(lambda p: p.requires_grad, self.model.parameters())
+            if params is None:
+                params = filter(lambda p: p.requires_grad, self.model.parameters())
 
-        # if hasattr(self, 'optimizer'):
-        #     optimizer = self.optimizer
-        # else:
-        optimizer = self.optimizer = torch.optim.Adam(params, lr=lr, eps=eps)  # weight_decay=self.weight_decay,
+            # if hasattr(self, 'optimizer'):
+            #     optimizer = self.optimizer
+            # else:
+            optimizer = self.optimizer = torch.optim.Adam(params, lr=lr, eps=eps)  # weight_decay=self.weight_decay,
 
-        self.compute_metrics_time = 0
-        self.n_epochs = n_epochs
-        self.compute_metrics()
-
-        with trange(n_epochs, desc="training", file=sys.stdout, disable=self.verbose) as pbar:
-            # We have to use tqdm this way so it works in Jupyter notebook.
-            # See https://stackoverflow.com/questions/42212810/tqdm-in-jupyter-notebook
-            for self.epoch in pbar:
-                self.on_epoch_begin()
-                pbar.update(1)
-                for tensors_list in self.data_loaders_loop():
-                    loss = self.loss(*tensors_list)
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-
-                if not self.on_epoch_end():
-                    break
-
-        if self.early_stopping.save_best_state_metric is not None:
-            self.model.load_state_dict(self.best_state_dict)
+            self.compute_metrics_time = 0
+            self.n_epochs = n_epochs
             self.compute_metrics()
 
-        self.model.eval()
-        self.training_time += (time.time() - begin) - self.compute_metrics_time
-        if self.verbose and self.frequency:
-            print("\nTraining time:  %i s. / %i epochs" % (int(self.training_time), self.n_epochs))
+            with trange(n_epochs, desc="training", file=sys.stdout, disable=self.verbose) as pbar:
+                # We have to use tqdm this way so it works in Jupyter notebook.
+                # See https://stackoverflow.com/questions/42212810/tqdm-in-jupyter-notebook
+                for self.epoch in pbar:
+                    self.on_epoch_begin()
+                    pbar.update(1)
+                    for tensors_list in self.data_loaders_loop():
+                        loss = self.loss(*tensors_list)
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()
+
+                    if not self.on_epoch_end():
+                        break
+
+            if self.early_stopping.save_best_state_metric is not None:
+                self.model.load_state_dict(self.best_state_dict)
+                self.compute_metrics()
+
+            self.model.eval()
+            self.training_time += (time.time() - begin) - self.compute_metrics_time
+            if self.verbose and self.frequency:
+                print("\nTraining time:  %i s. / %i epochs" % (int(self.training_time), self.n_epochs))
 
     def on_epoch_begin(self):
         pass
@@ -207,7 +209,8 @@ class Trainer:
         permutation = np.random.permutation(n)
         indices_test = permutation[:n_test]
         indices_train = permutation[n_test:(n_test + n_train)]
-
+        # print("indices_test:", indices_test)
+        # print("indices_train:", indices_train)
         return (
             self.create_posterior(model, gene_dataset, indices=indices_train, type_class=type_class),
             self.create_posterior(model, gene_dataset, indices=indices_test, type_class=type_class)
@@ -219,10 +222,9 @@ class Trainer:
         return type_class(model, gene_dataset, shuffle=shuffle, indices=indices, use_cuda=self.use_cuda,
                           data_loader_kwargs=self.data_loader_kwargs)
 
-    @torch.no_grad()
-    def get_all_latent_and_imputed_values(self, save_imputed=False, filename_imputation='imputed_values',
+    def get_all_latent_and_imputed_values(self, save_imputed=False, file_name_imputation='imputed_values',
                                           save_shape_genes_by_cells=False, save_latent=False,
-                                          filename_latent='latent_space'):
+                                          file_name_latent='latent_space'):
         r"""
         :param save_imputed: True if the user wants to save the imputed values in a .csv file
         :param file_name_imputation: in the situation described above, this is the name of the file saved
@@ -235,17 +237,16 @@ class Trainer:
         """
         all_dataset = self.create_posterior()
         self.model.eval()
-        ret = {"latent": [], "imputed_values": [], "scaled_imputed_values": []}
+        ret = {"latent": [], "imputed_values": []}
         for tensors in all_dataset:
             sample_batch, local_l_mean, local_l_var, batch_index, label = tensors
-            ret["latent"] += [self.model.sample_from_posterior_z(sample_batch, y=label, give_mean=True).cpu()]
-            ret["imputed_values"] += [self.model.get_sample_rate(sample_batch, batch_index=batch_index).cpu()]
-            ret["scaled_imputed_values"] += [self.model.get_sample_scale(sample_batch, batch_index=batch_index).cpu()]
+            ret["latent"] += [self.model.sample_from_posterior_z(sample_batch, y=label, give_mean=True)]
+            ret["imputed_values"] += [self.model.get_sample_rate(sample_batch, batch_index=batch_index)]
         for key in ret.keys():
             if len(ret[key]) > 0:
                 ret[key] = np.array(torch.cat(ret[key]))
         if save_imputed:
-            myfile = open(filename_imputation, 'w')
+            myfile = open(file_name_imputation, 'w')
             with myfile:
                 writer = csv.writer(myfile)
                 if save_shape_genes_by_cells:
@@ -253,7 +254,7 @@ class Trainer:
                 else:
                     writer.writerows(ret["imputed_values"])
         if save_latent:
-            myfile = open(filename_latent, 'w')
+            myfile = open(file_name_latent, 'w')
             with myfile:
                 writer = csv.writer(myfile)
                 writer.writerows(ret["latent"])

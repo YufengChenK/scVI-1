@@ -43,9 +43,9 @@ def plot(_type, projection="2d", **kwargs):
                 y = adata.obsm['cell_types']
             if "labels" in adata.obsm:
                 y = adata.obsm['labels']
-    elif "gene_dataset" in kwargs:
+    elif "dataset" in kwargs:
 
-        gene_dataset: GeneExpressionDataset = kwargs['gene_dataset']
+        gene_dataset: GeneExpressionDataset = kwargs['dataset']
         X = gene_dataset.X
         y = gene_dataset.labels
     elif "X" and "labels" in kwargs:

@@ -1,7 +1,6 @@
 import numpy as np
 import loompy
 from .dataset import GeneExpressionDataset
-import os
 
 
 class SmfishDataset(GeneExpressionDataset):
@@ -12,7 +11,7 @@ class SmfishDataset(GeneExpressionDataset):
         self.url = 'http://linnarssonlab.org/osmFISH/osmFISH_SScortex_mouse_all_cells.loom'
         self.cell_type_level = cell_type_level
         data, labels, gene_names, cell_types, x_coord, y_coord = self.download_and_preprocess()
-        super().__init__(
+        super(SmfishDataset, self).__init__(
             *GeneExpressionDataset.get_attributes_from_matrix(
                 data,
                 labels=labels), gene_names=gene_names,
@@ -20,7 +19,7 @@ class SmfishDataset(GeneExpressionDataset):
 
     def preprocess(self):
         print("Preprocessing smFISH dataset")
-        ds = loompy.connect(os.path.join(self.save_path, self.download_name))
+        ds = loompy.connect(self.save_path + self.download_name)
         gene_names = ds.ra['Gene']
         if self.cell_type_level == "minor":
             select = ds[:, :].sum(axis=0) > 0  # Take out cells that doesn't express any gene

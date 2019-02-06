@@ -65,8 +65,8 @@ available_models = {
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=250, help="how many times to process the gene_dataset")
-    parser.add_argument("--dataset", type=str, default="cortex", help="which gene_dataset to process")
+    parser.add_argument("--epochs", type=int, default=250, help="how many times to process the dataset")
+    parser.add_argument("--dataset", type=str, default="cortex", help="which dataset to process")
     parser.add_argument("--model", type=str, default="VAE", help="the model to use")
     parser.add_argument("--nobatches", action='store_true', help="whether to ignore batches")
     parser.add_argument("--nocuda", action='store_true',
@@ -79,7 +79,7 @@ if __name__ == '__main__':
                         help="whether to use cuda (will apply only if cuda is available")
     parser.add_argument("--benchmark", action='store_true',
                         help="whether to use cuda (will apply only if cuda is available")
-    parser.add_argument("--url", type=str, help="the url for downloading gene_dataset")
+    parser.add_argument("--url", type=str, help="the url for downloading dataset")
     args = parser.parse_args()
 
     n_epochs = args.epochs
@@ -92,7 +92,12 @@ if __name__ == '__main__':
         annotation_benchmarks(n_epochs=n_epochs, use_cuda=use_cuda)
     else:
         dataset = load_datasets(args.dataset, url=args.url)
-        model = available_models[args.model](dataset.nb_genes, dataset.n_batches*args.nobatches, dataset.n_labels)
+
+        print("dataset.nb_genes:", dataset.nb_genes)
+        print("dataset.n_batches:", dataset.n_batches)
+        print("dataset.n_batches * args.nobatches:", dataset.n_batches * args.nobatches)
+        print("dataset.n_labels:", dataset.n_labels)
+        model = available_models[args.model](dataset.nb_genes, dataset.n_batches * args.nobatches, dataset.n_labels)
         trainer_cls = UnsupervisedTrainer if args.model == 'VAE' else SemiSupervisedTrainer
         trainer = trainer_cls(model, dataset, use_cuda=use_cuda)
         trainer.train(n_epochs=n_epochs)

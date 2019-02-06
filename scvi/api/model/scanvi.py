@@ -1,4 +1,4 @@
-from scvi.api import Model
+from scvi.api.model.model import Model
 from scvi.models import SCANVI
 
 

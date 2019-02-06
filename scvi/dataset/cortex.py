@@ -1,5 +1,5 @@
 import csv
-import os
+
 import numpy as np
 
 from .dataset import GeneExpressionDataset
@@ -16,7 +16,7 @@ class CortexDataset(GeneExpressionDataset):
         :save_path: Save path of raw data file. Default: ``'data/'``.
 
     Examples:
-        >>> gene_dataset = CortexDataset()
+        >>> dataset = CortexDataset()
 
     .. _Mouse Cortex Cells dataset:
         https://storage.googleapis.com/linnarsson-lab-www-blobs/blobs/cortex/expression_mRNA_17-Aug-2014.txt
@@ -37,18 +37,26 @@ class CortexDataset(GeneExpressionDataset):
         # Number of genes we want to keep
         self.additional_genes = additional_genes
         expression_data, labels, gene_names, cell_types = self.download_and_preprocess()
+        # np.set_printoptions(threshold=np.nan)
 
-        super().__init__(
+        np.set_printoptions()
+        # print("labels:", labels)
+        # X, local_means, local_vars, batch_indices, labels = GeneExpressionDataset.get_attributes_from_matrix(
+        #         expression_data,
+        #         labels=labels)
+        # # print("batch_indices:", batch_indices, np.shape(batch_indices))
+        super(CortexDataset, self).__init__(
             *GeneExpressionDataset.get_attributes_from_matrix(
                 expression_data,
                 labels=labels),
             gene_names=np.char.upper(gene_names), cell_types=cell_types)
+        # print(self.X.shape)
 
     def preprocess(self):
         print("Preprocessing Cortex data")
         rows = []
         gene_names = []
-        with open(os.path.join(self.save_path, self.download_name), 'r') as csvfile:
+        with open(self.save_path + self.download_name, 'r') as csvfile:
             data_reader = csv.reader(csvfile, delimiter='\t')
             clusters = None
             for i, row in enumerate(data_reader):
@@ -59,10 +67,15 @@ class CortexDataset(GeneExpressionDataset):
                 if i >= 11:  # 10 + 1 in pandas
                     rows.append(row[1:])
                     gene_names.append(row[0])
+        np.set_printoptions(threshold=np.nan)
+
+        # print("clusters:", clusters)
+
         cell_types, labels = np.unique(clusters, return_inverse=True)
         _, self.precise_labels = np.unique(precise_clusters, return_inverse=True)
 
         expression_data = np.array(rows, dtype=np.int).T[1:]
+        # print(expression_data)
         gene_names = np.array(gene_names, dtype=np.str)
 
         additional_genes = []
@@ -90,6 +103,8 @@ class CortexDataset(GeneExpressionDataset):
             labels = labels[umi > 10]
 
         print("Finished preprocessing Cortex data")
+        # print(labels)
+        # print(np.shape(labels))
         return expression_data, labels, gene_names, cell_types
 
     @staticmethod

@@ -34,20 +34,20 @@ class VAEC(VAE):
     :param y_prior: If None, initialized to uniform probability over cell types
 
     Examples:
-        >>> gene_dataset = CortexDataset()
-        >>> vaec = VAEC(gene_dataset.nb_genes, n_batch=gene_dataset.n_batches * False,
-        ... n_labels=gene_dataset.n_labels)
+        >>> dataset = CortexDataset()
+        >>> vaec = VAEC(dataset.nb_genes, n_batch=dataset.n_batches * False,
+        ... n_labels=dataset.n_labels)
 
-        >>> gene_dataset = SyntheticDataset(n_labels=3)
-        >>> vaec = VAEC(gene_dataset.nb_genes, n_batch=gene_dataset.n_batches * False,
+        >>> dataset = SyntheticDataset(n_labels=3)
+        >>> vaec = VAEC(dataset.nb_genes, n_batch=dataset.n_batches * False,
         ... n_labels=3, y_prior=torch.tensor([[0.1,0.5,0.4]]))
     """
 
     def __init__(self, n_input, n_batch, n_labels, n_hidden=128, n_latent=10, n_layers=1, dropout_rate=0.1,
                  y_prior=None, dispersion="gene", log_variational=True, reconstruction_loss="zinb"):
-        super().__init__(n_input, n_batch, n_labels, n_hidden=n_hidden, n_latent=n_latent, n_layers=n_layers,
-                         dropout_rate=dropout_rate, dispersion=dispersion, log_variational=log_variational,
-                         reconstruction_loss=reconstruction_loss)
+        super(VAEC, self).__init__(n_input, n_batch, n_labels, n_hidden=n_hidden, n_latent=n_latent, n_layers=n_layers,
+                                   dropout_rate=dropout_rate, dispersion=dispersion, log_variational=log_variational,
+                                   reconstruction_loss=reconstruction_loss)
 
         self.z_encoder = Encoder(n_input, n_latent, n_cat_list=[n_labels], n_hidden=n_hidden, n_layers=n_layers,
                                  dropout_rate=dropout_rate)

@@ -4,15 +4,20 @@ import numpy as np
 import torch
 from anndata import AnnData
 
-from scvi.api import Model
+from scvi.api.model.model import Model
 from scvi.api.tool.array2geneDataset import XGeneDataset
-from scvi.dataset import GeneExpressionDataset
+from scvi.dataset import GeneExpressionDataset, CortexDataset
 from scvi.inference import Posterior
 from scvi.inference.inference import UnsupervisedTrainer, AdapterTrainer
 from scvi.models.vae import VAE as _VAE
 
-
 class VAE(Model):
+    """
+    >>> dataset = CortexDataset()
+    >>> vae = VAE(dataset.nb_genes)
+    >>> vae.fit(dataset)
+    >>> vae.transform(dataset.X)
+    """
     def __init__(self, n_input: int, n_batch: int = 0, n_labels: int = 0, n_hidden: int = 128, n_latent: int = 10,
                  n_layers: int = 1, dropout_rate: float = 0.1, dispersion: str = "gene", log_variational: bool = True,
                  reconstruction_loss: str = "zinb", train_size=0.8, use_cuda=True, frequency=5, n_epoch=400, lr=1e-3):
@@ -41,10 +46,10 @@ class VAE(Model):
         else:
             raise ValueError("it should unsupervised or 'semi-supervised'")
 
-    def fit(self, data: Union[AnnData, GeneExpressionDataset, np.ndarray], _type, **kwargs):
+    def fit(self, data: Union[AnnData, GeneExpressionDataset, np.ndarray], _type='unsupervised', **kwargs):
         if isinstance(data, AnnData):
-            from scvi.api.tool.scanpy2geneDataset import ScanpyGeneDataset
-            gene_dataset = ScanpyGeneDataset(data)
+            from scvi.api.tool.annDataset import AnnGeneDataset
+            gene_dataset = AnnGeneDataset(data)
             self.fit_genedataset(gene_dataset, _type)
         elif isinstance(data, GeneExpressionDataset):
             gene_dataset = data
@@ -66,7 +71,21 @@ class VAE(Model):
         assert self.trained
         latent = []
         _labels = []
-        for sample, label in zip(X, labels):
-            latent += [self.model.z_encoder(sample)[0]]
-            _labels += [label]
-        return np.array(torch.cat(latent)), np.array(torch.cat(_labels))
+        if labels is None:
+            labels = [None] * X.shape[0]
+        # for sample, label in zip(X, labels):
+        qz_mean, qz_variance, z = self.model.z_encoder(torch.Tensor(X))
+        print(type(qz_mean))
+        print(type(_labels))
+        _labels = labels
+        latent = qz_mean
+
+        return np.array(latent), _labels
+
+    def get_train_posterior(self):
+        assert self.trained
+        return self.trainer.train_set
+
+    def get_test_posterior(self):
+        assert self.trained
+        return self.trainer.test_set

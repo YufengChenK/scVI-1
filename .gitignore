@@ -113,3 +113,9 @@ ENV/
 
 
 /data
+/plot
+/result
+/result10X
+/pbmc_metadata
+*.bin
+/test/notebook/data

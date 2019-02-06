@@ -10,14 +10,12 @@ from scvi.models.log_likelihood import compute_log_likelihood
 
 class FishPosterior(Posterior):
 
-    @torch.no_grad()
     def ll(self, verbose=False):
         ll = compute_log_likelihood(self.model, self, mode="smFISH")
         if verbose:
             print("LL Fish: %.4f" % ll)
         return ll
 
-    @torch.no_grad()
     def show_spatial_expression(self, x_coord, y_coord, labels, color_by='scalar', title='spatial_expression.svg'):
         x_coord = x_coord.reshape(-1, 1)
         y_coord = y_coord.reshape(-1, 1)
@@ -31,7 +29,7 @@ class TrainerFish(Trainer):
 
     Args:
         :model: A model instance from class ``VAEF``
-        :gene_dataset: A gene_dataset instance like ``CortexDataset()``
+        :dataset: A dataset instance like ``CortexDataset()``
         :train_size: The train size, either a float between 0 and 1 or and integer for the number of training samples
          to use Default: ``0.8``.
         :\*\*kwargs: Other keywords arguments from the general Trainer class.
@@ -40,7 +38,7 @@ class TrainerFish(Trainer):
         >>> gene_dataset_seq = CortexDataset()
         >>> gene_dataset_fish = SmfishDataset()
         >>> vaef = VAEF(gene_dataset_seq.nb_genes, gene_dataset_fish.nb_genes,
-        ... n_labels=gene_dataset.n_labels, use_cuda=True)
+        ... n_labels=dataset.n_labels, use_cuda=True)
 
         >>> trainer = TrainerFish(gene_dataset_seq, gene_dataset_fish, vaef, train_size=0.5)
         >>> trainer.train(n_epochs=20, lr=1e-3)
@@ -50,7 +48,7 @@ class TrainerFish(Trainer):
     def __init__(self, model, gene_dataset_seq, gene_dataset_fish, train_size=0.8, test_size=None,
                  use_cuda=True, cl_ratio=0, n_epochs_even=1, n_epochs_kl=2000, n_epochs_cl=1, seed=0, warm_up=10,
                  scale=50, **kwargs):
-        super().__init__(model, gene_dataset_seq, use_cuda=use_cuda, **kwargs)
+        super(TrainerFish, self).__init__(model, gene_dataset_seq, use_cuda=use_cuda, **kwargs)
         self.kl = None
         self.cl_ratio = cl_ratio
         self.n_epochs_cl = n_epochs_cl
@@ -74,7 +72,7 @@ class TrainerFish(Trainer):
             self.adversarial_cls.cuda()
         self.optimizer_cls = torch.optim.Adam(filter(lambda p: p.requires_grad, self.adversarial_cls.parameters()),
                                               lr=lr, weight_decay=weight_decay)
-        super().train(n_epochs=n_epochs, lr=1e-3, params=None)
+        super(TrainerFish, self).train(n_epochs=20, lr=1e-3, params=None)
 
     @property
     def posteriors_loop(self):

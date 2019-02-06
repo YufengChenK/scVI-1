@@ -7,4 +7,3 @@ Credits
 * Maxime Langevin <maxime.langevin@polytechnique.edu>
 * Edouard Mehlman <edouard.mehlman@polytechnique.edu>
 * Yining Liu <lyining@berkeley.edu>
-* Jules Samaran <jules.samaran@mines-paristech.fr>

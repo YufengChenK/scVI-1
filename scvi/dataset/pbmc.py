@@ -1,5 +1,5 @@
 import pickle
-import os
+
 import numpy as np
 import pandas as pd
 
@@ -21,7 +21,7 @@ class PbmcDataset(GeneExpressionDataset):
         :save_path: Save path of raw data file. Default: ``'data/'``.
 
     Examples:
-        >>> gene_dataset = PbmcDataset()
+        >>> dataset = PbmcDataset()
 
     """
 
@@ -32,28 +32,36 @@ class PbmcDataset(GeneExpressionDataset):
 
         self.download_names = ['gene_info_pbmc.csv', 'pbmc_metadata.pickle']
         self.download()
-        self.de_metadata = pd.read_csv(os.path.join(self.save_path, 'gene_info_pbmc.csv'), sep=',')
+        self.de_metadata = pd.read_csv(self.save_path + 'gene_info_pbmc.csv', sep=',')
 
-        pbmc_metadata = pickle.load(open(os.path.join(self.save_path, 'pbmc_metadata.pickle'), 'rb'))
+        pbmc_metadata = pickle.load(open(self.save_path + 'pbmc_metadata.pickle', 'rb'))
 
         pbmc = GeneExpressionDataset.concat_datasets(
             Dataset10X("pbmc8k", save_path=save_path),
             Dataset10X("pbmc4k", save_path=save_path)
         )
         self.barcodes = pd.concat(pbmc.barcodes).values.ravel().astype(str)
-        super().__init__(pbmc.X, pbmc.local_means, pbmc.local_vars,
-                         pbmc.batch_indices, pbmc.labels, pbmc.gene_names)
+        super(PbmcDataset, self).__init__(pbmc.X, pbmc.local_means, pbmc.local_vars,
+                                          pbmc.batch_indices, pbmc.labels, pbmc.gene_names)
 
         dict_barcodes = dict(zip(self.barcodes, np.arange(len(self.barcodes))))
         subset_cells = []
         barcodes_metadata = pbmc_metadata['barcodes'].index.values.ravel().astype(np.str)
+
         for barcode in barcodes_metadata:
             if barcode in dict_barcodes:  # barcodes with end -11 filtered on 10X website (49 cells)
                 subset_cells += [dict_barcodes[barcode]]
+        # print(subset_cells)
+        print(len(self.barcodes))
+        print(len(barcodes_metadata))
+        print(len(subset_cells))
         self.update_cells(subset_cells=np.array(subset_cells))
         idx_metadata = np.array([not barcode.endswith('11') for barcode in barcodes_metadata], dtype=np.bool)
+        # todo: why it cares barcode ending with '11(other location)'?
         self.design = pbmc_metadata['design'][idx_metadata]
         self.raw_qc = pbmc_metadata['raw_qc'][idx_metadata]
+
+        print(self.raw_qc)
         self.qc_names = self.raw_qc.columns
         self.qc = self.raw_qc.values
 
@@ -62,14 +70,20 @@ class PbmcDataset(GeneExpressionDataset):
 
         labels = pbmc_metadata['clusters'][idx_metadata].reshape(-1, 1)[:len(self)]
         self.labels, self.n_labels = arrange_categories(labels)
+        print("labels:", self.labels, self.n_labels)
+        print(pbmc_metadata['list_clusters'])
         self.cell_types = pbmc_metadata['list_clusters'][:self.n_labels]
-
+        print(self.cell_types)
         genes_to_keep = list(self.de_metadata['ENSG'].values)  # only keep the genes for which we have de data
+        print(genes_to_keep)
         difference = list(set(genes_to_keep).difference(set(pbmc.gene_names)))  # Non empty only for unit tests
+        print(difference)
         for gene in difference:
             genes_to_keep.remove(gene)
         self.filter_genes(genes_to_keep)
+        print(self.filter_genes(genes_to_keep))
         self.de_metadata = self.de_metadata.head(len(genes_to_keep))  # this would only affect the unit tests
+        print(self.de_metadata)
 
 
 class PurifiedPBMCDataset(GeneExpressionDataset):
@@ -79,7 +93,7 @@ class PurifiedPBMCDataset(GeneExpressionDataset):
         :save_path: Save path of raw data file. Default: ``'data/'``.
 
     Examples:
-        >>> gene_dataset = PurifiedPBMCDataset()
+        >>> dataset = PurifiedPBMCDataset()
 
     """
 
@@ -97,6 +111,6 @@ class PurifiedPBMCDataset(GeneExpressionDataset):
 
         pbmc = GeneExpressionDataset.concat_datasets(*datasets, shared_batches=True)
         pbmc.subsample_genes(subset_genes=(np.array(pbmc.X.sum(axis=0)) > 0).ravel())
-        super().__init__(pbmc.X, pbmc.local_means, pbmc.local_vars,
-                         pbmc.batch_indices, pbmc.labels,
-                         gene_names=pbmc.gene_names, cell_types=pbmc.cell_types)
+        super(PurifiedPBMCDataset, self).__init__(pbmc.X, pbmc.local_means, pbmc.local_vars,
+                                                  pbmc.batch_indices, pbmc.labels,
+                                                  gene_names=pbmc.gene_names, cell_types=pbmc.cell_types)

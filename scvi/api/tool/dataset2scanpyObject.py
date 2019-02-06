@@ -4,12 +4,17 @@ from anndata import AnnData
 import numpy as np
 import pandas as pd
 
-def dataset2adata(gene_dataset: GeneExpressionDataset, _type="cell_order", **kwargs):
-    """
 
-    :param gene_dataset:
-    :param _type: choice:["cell_order", "type_order"]
-    :param kwargs:
+def dataset2adata(gene_dataset: GeneExpressionDataset,
+                  _type="cell_order"):
+    """
+    transform GeneExpressionDataset into AnnData
+    :param gene_dataset: input
+    :param _type: _type has two choice: 1. "type_order": labels are "cell_types[label] {identifier}"
+                                        2. "cell_order": labels are "cell {identifier}"
+                                        3. "manual": labels are cell_names
+
+    :return:
     """
     X = gene_dataset.X
     labels = gene_dataset.labels
@@ -27,12 +32,3 @@ def dataset2adata(gene_dataset: GeneExpressionDataset, _type="cell_order", **kwa
     adata.obs['n_genes'] = n_genes
     adata.var['n_cells'] = n_cells
     return adata
-
-
-
-
-if __name__ == '__main__':
-    gene_dataset = CortexDataset()
-    adata = dataset2adata(gene_dataset, "type_order")
-
-    print(adata)

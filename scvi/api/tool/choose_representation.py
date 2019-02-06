@@ -9,6 +9,21 @@ from scvi.api.model.vae import VAE
 
 
 def choose_representation(adata, use_rep=None, n_pcs=None, **kwarg):
+    """
+    an general version of choose_representation in scanpy.
+    Choose what to present.
+    add more dimension reduction algorithm ("PCA", "TSNE", "SCVI")
+
+    :param adata:
+    :param use_rep: the attribute in adata.obsm, use what to represent
+    :param n_pcs: ignored is use_rep is not None. how many principle components it has.
+    :param kwarg:
+            attributes:
+            1. 'tag':
+            2. 'pre_method': 4 values legal: "PCA"/"pca", "tsne"/"t-SNE"/"t-sne", "scvi", default by "PCA"
+            3. '_type': _type in scvi.api.model.vae.VAE. 2 values legal: "unsupervised", "adapter"
+    :return:
+    """
     if use_rep is None and n_pcs == 0:  # backwards compat for specifying `.X`
         use_rep = 'X'
     if use_rep is None:
