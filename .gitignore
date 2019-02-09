@@ -112,6 +112,11 @@ ENV/
 .flooignore
 
 
+.h5ad
+.pkl
+/scvi/model/write
+/tests
+/write
 /data
 /plot
 /result
@@ -119,3 +124,6 @@ ENV/
 /pbmc_metadata
 *.bin
 /test/notebook/data
+*.h5ad
+Cortex_dataset_imputed_values
+Cortex_dataset_latent_space

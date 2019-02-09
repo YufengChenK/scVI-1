@@ -1,11 +1,13 @@
-from anndata import AnnData
+import torch
 
+from anndata import AnnData
+import numpy as np
 from scvi.api.tool.array2adata import array2adata
 from scvi.dataset import GeneExpressionDataset
 from scvi.inference import Posterior
 
 
-def posterior2adata(posterior: Posterior, _type="cell_order"):
+def posterior2adata(model, posterior: Posterior, _type="cell_order"):
     """
     transform a posterior object into AnnData object(scanpy object)
     :param posterior: input
@@ -14,9 +16,15 @@ def posterior2adata(posterior: Posterior, _type="cell_order"):
                                         3. "manual": labels are cell_names
     :return: AnnData
     """
-    latent, batch_indices, labels = posterior.get_latent()
-
+    latent = []
+    for tensors in posterior:
+        sample_batch, local_l_mean, local_l_var, batch_index, label = tensors
+        sample = model.sample_from_posterior_z(sample_batch, y=label, give_mean=True)
+        latent += [sample]
+    # print(latent[0])
+    latent = np.array(torch.cat(latent))
     tsne = posterior.apply_t_sne(latent, None)
+
     imputation = posterior.imputation()
     table = posterior.differential_expression_table(select=None)
 
@@ -30,6 +38,7 @@ def posterior2adata(posterior: Posterior, _type="cell_order"):
     adata: AnnData = adata.transpose()
     adata.obsm['X_scVI'] = latent
     adata.obsm['X_tsne'] = tsne[0]
+    assert np.equal(tsne[1], np.arange(len(latent))).all()
     adata.uns["imputation"] = imputation
     dfadata = AnnData(X=table[1])
     dfadata.obs['cell_names'] = table[0]

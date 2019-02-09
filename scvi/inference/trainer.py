@@ -238,8 +238,10 @@ class Trainer:
         all_dataset = self.create_posterior()
         self.model.eval()
         ret = {"latent": [], "imputed_values": []}
+        # print('all_dataset:', all_dataset)
         for tensors in all_dataset:
             sample_batch, local_l_mean, local_l_var, batch_index, label = tensors
+            # print("sample_batch:", sample_batch)
             ret["latent"] += [self.model.sample_from_posterior_z(sample_batch, y=label, give_mean=True)]
             ret["imputed_values"] += [self.model.get_sample_rate(sample_batch, batch_index=batch_index)]
         for key in ret.keys():

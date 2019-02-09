@@ -21,11 +21,16 @@ def array2adata(X, gene_names=None, cell_names=None, cell_types=None,_type='type
     adata = AnnData(X=X.transpose())
     cell_names = cell_names.flatten()
     cell_names = get_unique_cell_names(_type=_type, cell_types=cell_types, labels=cell_names)
-    print(X)
-    n_genes = pd.Series(np.sum(X, axis=0), index=gene_names)
-    n_cells = pd.Series(np.sum(X, axis=1), index=cell_names)
-    print(n_genes)
-    print(n_cells)
+    # print(X)
+    import pickle
+    # with open("X.pkl", 'wb') as xf:
+    #     pickle.dump(X, xf)
+    # print(np.sum(X, axis=0).ravel())
+    # X = np.array(X)
+    n_genes = pd.Series(np.array(np.sum(X, axis=0)).ravel(), index=gene_names)
+    n_cells = pd.Series(np.array(np.sum(X, axis=1)).ravel(), index=cell_names)
+    # print(n_genes)
+    # print(n_cells)
     adata.obs['n_genes'] = n_genes
     adata.var['n_cells'] = n_cells
 
